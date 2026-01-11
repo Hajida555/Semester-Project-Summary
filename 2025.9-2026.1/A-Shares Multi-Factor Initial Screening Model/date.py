@@ -207,7 +207,7 @@ def store_to_db(daily_df, finance_df):
     #插入
     cursor.executemany(insert_sql, insert_date)
     conn.commit()
-    print(f"插入成功 共{insert_date}条插入{DB_TYPE}")
+    print(f"插入成功 共{len(insert_date)}条插入{DB_TYPE}")
 
     #总记录
     cursor.execute("SELECT COUNT(*) FROM stock_daily;")
