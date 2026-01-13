@@ -37,10 +37,10 @@ def calculate_stable_stocks(df):
         group_df = group_df.sort_values(by="date").reset_index(drop=True)
 
         #计算日收益率 瞬时变化率 并删除第一行的缺失值
-        group_df["daily_return"] = group_df["close"].pct_chage()
+        group_df["daily_return"] = group_df["close"].pct_change()
         group_df = group_df.dropna(subset=["daily_return"])
 
-        group_df["return_derivative"] = group_df["daliy_return"].diff()
+        group_df["return_derivative"] = group_df["daily_return"].diff()
         group_df = group_df.dropna(subset=["return_derivative"])
 
         #通过瞬时变化率均值筛选出稳定的标的
@@ -115,4 +115,56 @@ def compare_strategy_returns(stable_df_copy, stock_score_df):
         common_stocks = set(prev_date_df["code"]).intersection(set(curr_date_df["code"]))
         if common_stocks and common_stocks.issubset(all_stable_stocks):
             for stock in common_stocks:
-                prev_close= prev_date_df[prev_date_df["code"] == stock]["close"].values[0]
+                prev_close = prev_date_df[prev_date_df["code"] == stock]["close"].values[0]
+                curr_close = curr_date_df[curr_date_df["code"] == stock]["close"].values[0]
+                stock_return = (curr_close - prev_close) / prev_close
+                equal_weight_return += stock_return /len(common_stocks)
+        strategy_returns["equal_weight"].append(strategy_returns["equal_weight"][-1] + equal_weight_return)
+
+        #矩阵加权收益
+        matrix_weight_return = 0.0
+        top_common_stocks = set(prev_date_df["code"]).intersection(set(top_stocks))
+        if top_common_stocks:
+            for stock in top_common_stocks:
+                prev_close = prev_date_df[prev_date_df["code"] == stock]["close"].values[0]
+                curr_close = curr_date_df[curr_date_df["code"] == stock]["close"].values[0]
+                stock_return = (curr_close - prev_close) / prev_close
+                matrix_weight_return += stock_return / len(top_common_stocks)
+        strategy_returns["matrix_weight"].append(strategy_returns["matrix_weight"][-1] + matrix_weight_return)
+
+    #折线表对比
+    plt.figure(figsize=(14, 7))
+    plt.plot(date_list, strategy_returns["equal_weight"], label="等权选股", color="blue", linewidth=2)
+    plt.plot(date_list, strategy_returns["matrix_weight"], label="PE/PB选股", color="red", linewidth=2)
+    plt.title("等权 vs 矩阵", fontsize=16)
+    plt.xlabel("日期", fontsize=12)
+    plt.ylabel("累计收益", fontsize=12)
+    plt.legend(fontsize=10)
+    plt.grid(True, alpha=0.3)
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    plt.show()
+
+    #输出最终结果
+    final_equal_return = strategy_returns["equal_weight"][-1]
+    final_matrix_return = strategy_returns["matrix_weight"][-1]
+    print(f"\n两种策略对比：")
+    print(f"等权最终收益:{final_equal_return:.4f}")
+    print(f"矩阵最终收益:{final_matrix_return:.4f}")
+
+#================================================================
+#组函数
+#================================================================
+def main_calculation():
+    try:
+        stock_df = read_data_from_db()
+        stable_df, stable_stock_list = calculate_stable_stocks(stock_df)
+        stable_df_copy, stock_score_df = calculate_factor_score(stable_df)
+        compare_strategy_returns(stable_df_copy, stock_score_df)
+    
+        print("\n运行成功！")
+    except Exception as e:
+        print(f"运行失败！{e}")
+
+if __name__ == "__main__":
+    main_calculation()
